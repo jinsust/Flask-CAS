@@ -15,6 +15,7 @@ except ImportError:
     from urllib.parse import urljoin
     from urllib.parse import urlencode
 
+
 def create_url(base, path=None, *query):
     """ Create a url.
 
@@ -152,9 +153,9 @@ def create_cas_validate_url(cas_url, cas_route_prefix, service, ticket,
         ('renew', renew),
     )
 
+
 def create_cas_proxyValidate_url(cas_url, cas_route_prefix, service, ticket,
                                  pgtUrl=None, renew=None):
-
     """ Create a CAS proxyValidate URL.
 
     Keyword arguments:
@@ -183,8 +184,8 @@ def create_cas_proxyValidate_url(cas_url, cas_route_prefix, service, ticket,
         ('renew', renew),
     )
 
-def create_cas_proxy_url(cas_url, cas_route_prefix, pgt, targetService):
 
+def create_cas_proxy_url(cas_url, cas_route_prefix, pgt, targetService):
     """ Create a CAS proxy URL.
 
     Keyword arguments:
@@ -209,8 +210,8 @@ def create_cas_proxy_url(cas_url, cas_route_prefix, pgt, targetService):
         ('targetService', targetService),
     )
 
-def create_cas_samIValidate_url(cas_url, cas_route_prefix, target):
 
+def create_cas_samIValidate_url(cas_url, cas_route_prefix, target):
     """ Create a CAS samIValidate URL.
 
     Keyword arguments:

@@ -17,7 +17,9 @@ from . import routing
 
 from functools import wraps
 
+
 class CAS(object):
+
     """
     Required Configs:
 
@@ -47,9 +49,11 @@ class CAS(object):
         # Configuration defaults
         app.config.setdefault('CAS_TOKEN_SESSION_KEY', '_CAS_TOKEN')
         app.config.setdefault('CAS_USERNAME_SESSION_KEY', 'CAS_USERNAME')
+        app.config.setdefault('CAS_USERID_SESSION_KEY', 'CAS_USERID')
         app.config.setdefault('CAS_ATTRIBUTES_SESSION_KEY', 'CAS_ATTRIBUTES')
         app.config.setdefault('CAS_ROUTE_PREFIX', 'cas')
         app.config.setdefault('CAS_LOGOUT_RETURN_URL', None)
+        app.config.setdefault('CAS_SAVE_INFO_CALLBACK', None)
         app.config.setdefault('CAS_VERSION', '1')
         # Register Blueprint
         app.register_blueprint(routing.blueprint, url_prefix=url_prefix)
@@ -83,16 +87,19 @@ class CAS(object):
         return flask.session.get(
             self.app.config['CAS_ATTRIBUTES_SESSION_KEY'], None)
 
+
 def login():
     return flask.redirect(flask.url_for('cas.login', _external=True))
+
 
 def logout():
     return flask.redirect(flask.url_for('cas.logout', _external=True))
 
+
 def login_required(function):
     @wraps(function)
     def wrap(*args, **kwargs):
-        if 'CAS_USERNAME' not in flask.session:
+        if 'username' not in flask.session:
             flask.session['CAS_AFTER_LOGIN_SESSION_URL'] = flask.request.path
             return login()
         else:

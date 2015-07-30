@@ -4,6 +4,7 @@ from .cas_urls import create_cas_login_url
 from .cas_urls import create_cas_logout_url
 from .cas_urls import create_cas_validate_url
 
+import json
 
 try:
     from urllib import urlopen
@@ -37,18 +38,39 @@ def login():
     if 'ticket' in flask.request.args:
         flask.session[cas_token_session_key] = flask.request.args['ticket']
 
+    isjson = False
+    if 'fmt' in flask.request.args:
+        isjson = flask.request.args['fmt'] == 'json'
+
+    service = None
+    if 'service' in flask.request.args:
+        service = flask.request.args['service']
+
+    store_func = current_app.config['CAS_SAVE_INFO_CALLBACK']
+
     if cas_token_session_key in flask.session:
 
-        if validate(flask.session[cas_token_session_key]):
+        r = {'status': 'ok'}
+        if validate(flask.session[cas_token_session_key], service):
             if 'CAS_AFTER_LOGIN_SESSION_URL' in flask.session:
                 redirect_url = flask.session.pop('CAS_AFTER_LOGIN_SESSION_URL')
             else:
                 redirect_url = flask.url_for(
                     current_app.config['CAS_AFTER_LOGIN'])
+            #cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
+            #cas_attributes_session_key = current_app.config['CAS_ATTRIBUTES_SESSION_KEY']
+            if store_func:
+                store_func(flask.session)
         else:
+            r['status'] = 'error'
             del flask.session[cas_token_session_key]
 
-    current_app.logger.debug('Redirecting to: {0}'.format(redirect_url))
+        if isjson:
+            if store_func:
+                store_func(flask.session)
+            return json.dumps(r)
+
+    current_app.logger.debug('Redirecting to: {}, {}'.format(redirect_url, flask.session))
 
     return flask.redirect(redirect_url)
 
@@ -60,9 +82,12 @@ def logout():
     """
 
     cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
+    cas_userid_session_key = current_app.config['CAS_USERID_SESSION_KEY']
 
     if cas_username_session_key in flask.session:
         del flask.session[cas_username_session_key]
+    if cas_userid_session_key in flask.session:
+        del flask.session[cas_userid_session_key]
 
     redirect_url = create_cas_logout_url(
         current_app.config['CAS_SERVER'],
@@ -71,11 +96,11 @@ def logout():
         current_app.config['CAS_VERSION'],
     )
 
-    current_app.logger.debug('Redirecting to: {0}'.format(redirect_url))
+    current_app.logger.debug('Redirecting to: {}, {}'.format(redirect_url, flask.session))
     return flask.redirect(redirect_url)
 
 
-def validate(ticket):
+def validate(ticket, service=None):
     """
     Will attempt to validate the ticket. If validation fails, then False
     is returned. If validation is successful, then True is returned
@@ -94,7 +119,7 @@ def validate(ticket):
     cas_validate_url = create_cas_validate_url(
         current_app.config['CAS_SERVER'],
         current_app.config['CAS_ROUTE_PREFIX'],
-        flask.url_for('.login', _external=True),
+        flask.url_for('.login', _external=True) if service == None else service,
         ticket,
         version=current_app.config['CAS_VERSION'])
 
@@ -102,7 +127,6 @@ def validate(ticket):
         cas_validate_url))
 
     response = urlopen(cas_validate_url)
-
 
     _validate = _PROTOCOLS[current_app.config['CAS_VERSION']]
     is_valid = _validate(response)
@@ -121,8 +145,9 @@ def _validate_cas1(response):
         is_valid = True if is_valid.strip() == b'yes' else False
         if is_valid:
             cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
+            cas_userid_session_key = current_app.config['CAS_USERID_SESSION_KEY']
             username = username.strip().decode('utf8', 'ignore')
-            flask.session[cas_username_session_key] = username
+            flask.session[cas_userid_session_key] = flask.session[cas_username_session_key] = username
     except ValueError:
         current_app.logger.error("CAS returned unexpected result")
         is_valid = False
@@ -142,8 +167,9 @@ def _validate_cas2(response):
         is_valid = user != None
         if is_valid:
             cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
+            cas_userid_session_key = current_app.config['CAS_USERID_SESSION_KEY']
             username = user.text
-            flask.session[cas_username_session_key] = username
+            flask.session[cas_userid_session_key] = flask.session[cas_username_session_key] = username
             return True
         else:
             error = tree.find('cas:authenticationFailure', namespaces=dict(cas='http://www.yale.edu/tp/cas'))
@@ -161,26 +187,30 @@ def _validate_cas3(response):
 
     try:
         data = response.read()
+        current_app.logger.info('Response data, ' + data)
         tree = ElementTree.fromstring(data)
         user = tree.find('*/cas:user', namespaces=dict(cas='http://www.yale.edu/tp/cas'))
         is_valid = user != None
         if is_valid:
             cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
+            cas_userid_session_key = current_app.config['CAS_USERID_SESSION_KEY']
             cas_attributes_session_key = current_app.config['CAS_ATTRIBUTES_SESSION_KEY']
             attributes = {}
             username = user.text
+            current_app.logger.info('Response username, ' + username)
             attrs = tree.find('*/cas:attributes', namespaces=dict(cas='http://www.yale.edu/tp/cas'))
-            for attr in attrs:
-                tag = attr.tag.split("}").pop()
-                if tag in attributes:
-                    # found multiple value attribute
-                    if isinstance(attributes[tag], list):
-                        attributes[tag].append(attr.text)
+            if attrs != None:
+                for attr in attrs:
+                    tag = attr.tag.split("}").pop()
+                    if tag in attributes:
+                        # found multiple value attribute
+                        if isinstance(attributes[tag], list):
+                            attributes[tag].append(attr.text)
+                        else:
+                            attributes[tag] = [attributes[tag], attr.text]
                     else:
-                        attributes[tag] = [attributes[tag], attr.text]
-                else:
-                    attributes[tag] = attr.text
-            flask.session[cas_username_session_key] = username
+                        attributes[tag] = attr.text
+            flask.session[cas_userid_session_key] = flask.session[cas_username_session_key] = username
             flask.session[cas_attributes_session_key] = attributes
             return True
         else:
@@ -191,4 +221,5 @@ def _validate_cas3(response):
                 current_app.logger.error('Error: ' + error.get('code') + ', ' + error.text)
             return False
     finally:
+        current_app.logger.info("flask.session, {}".format(flask.session))
         response.close()
