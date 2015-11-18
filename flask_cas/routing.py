@@ -31,7 +31,7 @@ def login():
     cas_token_session_key = current_app.config['CAS_TOKEN_SESSION_KEY']
 
     redirect_url = create_cas_login_url(
-        current_app.config['CAS_SERVER'],
+        current_app.config['CAS_SERVER2'] if current_app.config['CAS_NEW_LOGIN'] else current_app.config['CAS_SERVER'],
         current_app.config['CAS_ROUTE_PREFIX'],
         flask.url_for('.login', _external=True))
 
@@ -72,7 +72,13 @@ def login():
 
     current_app.logger.debug('Redirecting to: {}, {}'.format(redirect_url, flask.session))
 
-    return flask.redirect(redirect_url)
+    if current_app.config['CAS_NEW_LOGIN']:
+        return flask.render_template(
+            'cas_result.html',
+            redirect_url=redirect_url,
+        )
+    else:
+        return flask.redirect(redirect_url)
 
 
 @blueprint.route('/logout/')
