@@ -52,11 +52,8 @@ def login():
 
         r = {'status': 'ok'}
         if validate(flask.session[cas_token_session_key], service):
-            if 'CAS_AFTER_LOGIN_SESSION_URL' in flask.session:
-                redirect_url = flask.session.pop('CAS_AFTER_LOGIN_SESSION_URL')
-            else:
-                redirect_url = flask.url_for(
-                    current_app.config['CAS_AFTER_LOGIN'])
+            redirect_url = flask.url_for(
+                current_app.config['CAS_AFTER_LOGIN'])
             #cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
             #cas_attributes_session_key = current_app.config['CAS_ATTRIBUTES_SESSION_KEY']
             if store_func:
