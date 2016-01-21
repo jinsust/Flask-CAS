@@ -57,7 +57,7 @@ def login():
             #cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
             #cas_attributes_session_key = current_app.config['CAS_ATTRIBUTES_SESSION_KEY']
             if store_func:
-                store_func(flask.session)
+                store_func(flask.request, flask.session)
         else:
             r['status'] = 'error'
             del flask.session[cas_token_session_key]
