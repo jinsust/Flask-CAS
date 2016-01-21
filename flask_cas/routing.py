@@ -57,14 +57,14 @@ def login():
             #cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
             #cas_attributes_session_key = current_app.config['CAS_ATTRIBUTES_SESSION_KEY']
             if store_func:
-                store_func(flask.session)
+                store_func(flask.request, flask.session)
         else:
             r['status'] = 'error'
             del flask.session[cas_token_session_key]
 
         if isjson:
             if store_func:
-                store_func(flask.session)
+                store_func(flask.request, flask.session)
             return json.dumps(r)
 
     current_app.logger.debug('Redirecting to: {}, {}'.format(redirect_url, flask.session))
